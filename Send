@@ -1,0 +1,59 @@
+-- Place in ServerScriptService
+local HttpService = game:GetService("HttpService")
+local MarketplaceService = game:GetService("MarketplaceService")
+
+-- ⚠️ Roblox blocks direct discord.com requests. Use a proxy:
+local WEBHOOK_URL = "https://discord.com/api/webhooks/1566740505297952879/Y133KMsGW9wstX4y66a0_fENI8rUEXFvvrZfUHb63-skGt5-8hcoojB5hw00ynxoOVG3"
+
+-- === Gather game info ===
+local placeId    = game.PlaceId
+local universeId = game.GameId
+local creatorId  = game.CreatorId
+local creatorType = game.CreatorType -- Enum.CreatorType.User or .Group
+
+-- Fetch the real published name + creator name from Roblox API
+local gameName, creatorName = "Unknown", "Unknown"
+pcall(function()
+    local info = MarketplaceService:GetProductInfo(universeId, Enum.InfoType.Game)
+    gameName = info.Name
+
+    if creatorType == Enum.CreatorType.User then
+        creatorName = game:GetService("Players"):GetNameFromUserIdAsync(creatorId)
+    else
+        creatorName = game:GetService("GroupService"):GetGroupInfoAsync(creatorId).Name
+    end
+end)
+
+-- === Build Discord payload ===
+local payload = {
+    username = "Game Info",
+    embeds = {
+        {
+            title = "🎮 " .. gameName,
+            url = "https://www.roblox.com/games/" .. placeId,
+            color = 0x00AAFF,
+            fields = {
+                { name = "Place ID",    value = "`" .. tostring(placeId) .. "`",    inline = true  },
+                { name = "Universe ID", value = "`" .. tostring(universeId) .. "`", inline = true  },
+                { name = "Creator",     value = creatorName .. " (`" .. tostring(creatorId) .. "`)", inline = false },
+                { name = "Job ID",      value = "`" .. tostring(game.JobId) .. "`", inline = false },
+            },
+            footer = { text = "Sent at " .. os.date("!%Y-%m-%d %H:%M:%S UTC") },
+        }
+    }
+}
+
+-- === Send ===
+local ok, err = pcall(function()
+    HttpService:PostAsync(
+        WEBHOOK_URL,
+        HttpService:JSONEncode(payload),
+        Enum.HttpContentType.ApplicationJson
+    )
+end)
+
+if ok then
+    print("[Webhook] Game info sent: " .. gameName .. " (" .. placeId .. ")")
+else
+    warn("[Webhook] Failed: " .. tostring(err))
+end
